@@ -15,6 +15,10 @@ nav {
     border-bottom: 2px solid #4a6b57;
 }
 
+nav span a {
+    margin-left: 15px;
+}
+
 a { color: #2f5d44; }
 
 .inlagg {

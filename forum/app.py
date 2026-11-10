@@ -78,3 +78,52 @@ def startsida():
         ny_trad = '<p><a href="/login">Logga in</a> om du vill starta en egen trad.</p>'
 
     return sida('Forum for farskallar', f'<h1>Alla tradar</h1><ul>{lista}</ul>{ny_trad}')
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        anvandare = query(
+            'SELECT id, username FROM users WHERE username = %s AND password = %s',
+            (request.form['username'], request.form['password'])
+        )
+        if anvandare:
+            session['user_id'] = anvandare[0]['id']
+            session['username'] = anvandare[0]['username']
+            return redirect(url_for('startsida'))
+        return sida('Logga in', '<p>Hoppsan, fel anvandarnamn eller losenord. <a href="/login">Forsok igen</a></p>')
+
+    return sida('Logga in', '''
+        <h1>Logga in</h1>
+        <form method="post">
+            Anvandarnamn: <input type="text" name="username">
+            Losenord: <input type="password" name="password">
+            <input type="submit" value="Logga in">
+        </form>
+        <p><i>Testa: holros/foo, manfol/bar eller goskor/baz</i></p>
+    ''')
+
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('startsida'))
+
+
+@app.route('/ny-trad', methods=['POST'])
+def ny_trad():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    trad_id = query(
+        'INSERT INTO topics (title, user_id) VALUES (%s, %s)',
+        (request.form['rubrik'], session['user_id']),
+        write=True
+    )
+    # Fragan som skrevs i formularet blir det forsta inlagget i tradden
+    query(
+        'INSERT INTO posts (topic_id, user_id, text) VALUES (%s, %s, %s)',
+        (trad_id, session['user_id'], request.form['text']),
+        write=True
+    )
+    return redirect(url_for('visa_trad', trad_id=trad_id))
