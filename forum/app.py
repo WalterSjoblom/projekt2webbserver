@@ -127,3 +127,57 @@ def ny_trad():
         write=True
     )
     return redirect(url_for('visa_trad', trad_id=trad_id))
+
+
+@app.route('/trad/<int:trad_id>')
+def visa_trad(trad_id):
+    tradar = query('SELECT title FROM topics WHERE id = %s', (trad_id,))
+    if not tradar:
+        return sida('Hittades inte', '<p>Den har tradden finns inte. <a href="/">Tillbaka till alla tradar</a></p>')
+
+    inlagg = query('''
+        SELECT posts.text, posts.created_at, users.username
+        FROM posts JOIN users ON users.id = posts.user_id
+        WHERE posts.topic_id = %s
+        ORDER BY posts.id
+    ''', (trad_id,))
+
+    alla_inlagg = ''
+    for i in inlagg:
+        alla_inlagg += f'''
+            <div class="inlagg">
+                <small><b>{i["username"]}</b> skrev {i["created_at"]}</small>
+                <p>{i["text"]}</p>
+            </div>
+        '''
+
+    if 'user_id' in session:
+        svarsruta = f'''
+            <h2>Skriv ett svar</h2>
+            <form method="post" action="/svara/{trad_id}">
+                <textarea name="text" rows="5"></textarea>
+                <input type="submit" value="Skicka svar">
+            </form>
+        '''
+    else:
+        svarsruta = '<p><a href="/login">Logga in</a> om du vill svara.</p>'
+
+    return sida(tradar[0]['title'], f'<h1>{tradar[0]["title"]}</h1>{alla_inlagg}{svarsruta}')
+
+
+@app.route('/svara/<int:trad_id>', methods=['POST'])
+def svara(trad_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    query(
+        'INSERT INTO posts (topic_id, user_id, text) VALUES (%s, %s, %s)',
+        (trad_id, session['user_id'], request.form['text']),
+        write=True
+    )
+    # Tillbaka till tradden sa att sidan inte skickar svaret igen vid omladdning
+    return redirect(url_for('visa_trad', trad_id=trad_id))
+
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0')
